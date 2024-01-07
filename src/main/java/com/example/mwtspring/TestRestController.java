@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/apartments")
@@ -31,28 +32,50 @@ public class TestRestController {
         return ResponseEntity.ok(returnList);
     }
 
-    @RequestMapping(value = "/get/{id}", method = RequestMethod.GET)
-    public @ResponseBody String getApartmentById(@PathVariable int id){
-        return apartmentList.isEmpty() ? "Unfortunately there are no students" :  apartmentList.get(id).getApartmentName();
+    @RequestMapping(value = "/get/{name}", method = RequestMethod.GET)
+    public ResponseEntity<String> getApartmentById(@PathVariable String name){
+        Optional<Apartment> apartmentToGet = apartmentRepository.findById(name);
+        Apartment apartment = apartmentToGet.orElse(null);
+
+        if(apartment != null){
+            return ResponseEntity.ok(apartment.getApartmentName());
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 
+    @PutMapping("/update/{oldName}/{newName}")
+    public ResponseEntity<String> updateApartment(@PathVariable String oldName, @PathVariable String newName){
+        Optional<Apartment> apartmentToUpdate = apartmentRepository.findById(oldName);
+        Apartment apartment = apartmentToUpdate.orElse(null);
+
+        if(apartment != null){
+            int index = apartmentList.indexOf(apartment);
+
+            apartment.setApartmentName(newName);
+            apartmentRepository.save(apartment); // Update repository
+            if(index != -1){
+                apartmentList.get(index).setApartmentName(newName); // Update list
+            }
+
+            return ResponseEntity.ok("Apartment " + oldName + " updated to " + newName);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
 
 
     @PostMapping("/addApartment")
     @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<String> createString(@RequestBody String apartmentName) {
+        System.out.println("Creating apartment " + apartmentName);
         Apartment apartment = new Apartment();
         apartment.setApartmentName(apartmentName);
-        apartment.setId((long) apartmentList.size());
-        //needs to be adjusted
         if (apartmentList.contains(apartment)) {
-            // If the string already exists, return a conflict response (HTTP 409).
             return ResponseEntity.status(HttpStatus.CONFLICT).body("String " + apartmentName + " already exists");
         } else {
-            // Add the new string and return a created response (HTTP 201).
             apartmentRepository.save(apartment);
             apartmentList.add(apartment);
-            System.out.println(apartmentList);
             return ResponseEntity.status(HttpStatus.CREATED).body("String " + apartmentName + " created successfully");
         }
     }
